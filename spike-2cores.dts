@@ -1,0 +1,69 @@
+/dts-v1/;
+
+/ {
+	#address-cells = <2>;
+  	#size-cells = <2>;
+  	compatible = "ucbbar,spike-bare-dev";
+  	model = "ucbbar,spike-bare";
+  	chosen {
+    		bootargs = "root=/dev/ram console=hvc0 earlycon=sbi";
+  	};
+  	cpus {
+		#address-cells = <0x01>;
+		#size-cells = <0x00>;
+		timebase-frequency = <500000>;
+		cpu@0 {
+			clock-frequency = <50000000>;
+			timebase-frequency = <500000>;
+			compatible = "ucb-bar,boom0\0riscv";
+			device_type = "cpu";
+			mmu-type = "riscv,sv39";
+			reg = <0x00>;
+			riscv,isa = "rv64imafd";
+			status = "okay";
+			interrupt-controller {
+				#interrupt-cells = <0x01>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+				phandle = <0x03>;
+			};
+		};
+
+		cpu@1 {
+			clock-frequency = <50000000>;
+			timebase-frequency = <500000>;
+			compatible = "ucb-bar,boom0\0riscv";
+			device_type = "cpu";
+			mmu-type = "riscv,sv39";
+			reg = <0x01>;
+			riscv,isa = "rv64imafd";
+			status = "okay";
+			interrupt-controller {
+				#interrupt-cells = <0x01>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+				phandle = <0x04>;
+			};
+		};
+	};
+ 	memory@80000000 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x80000000>;
+	};
+	soc {
+    		#address-cells = <2>;
+    		#size-cells = <2>;
+    		compatible = "ucbbar,spike-bare-soc", "simple-bus";
+    		ranges;
+	    	clint@2000000 {
+	      		compatible = "riscv,clint0";
+	      		interrupts-extended = <0x03 0x03 0x03 0x07 0x04 0x03 0x04 0x07>;
+	      		reg = <0x0 0x2000000 0x0 0xc0000>;
+	    	};
+	    
+  	};
+  htif {
+    compatible = "ucb,htif0";
+  };
+};
+
