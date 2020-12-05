@@ -148,7 +148,7 @@ static void send_ipi_many(uintptr_t* pmask, int event)
   uint32_t incoming_ipi = 0;
   for (uintptr_t i = 0, m = mask; m; i++, m >>= 1)
     if (m & 1)
-      while ((*OTHER_HLS(i)->ipi)){
+      while ((*OTHER_HLS(i)->ipi)&0xf){
       //printm("\n*OTHER_HLS(i)->ipi:%llx\n\n",*OTHER_HLS(i)->ipi);
         incoming_ipi |= atomic_swap(HLS()->ipi, 0);
         //printm("\n*OTHER_HLS(i)->ipi:%llx\n\n",*OTHER_HLS(i)->ipi);
@@ -192,7 +192,7 @@ void mcall_trap(uintptr_t* regs, uintptr_t mcause, uintptr_t mepc)
   	{
       uintptr_t mstatus = read_csr(mstatus);
       mstatus = INSERT_FIELD(mstatus, 0x1f000000, 9);
-      mstatus = INSERT_FIELD(mstatus, 0x80, 1);
+      //mstatus = INSERT_FIELD(mstatus, 0x80, 1);
       write_csr(mstatus, mstatus);
       retval=arg0;
       }
