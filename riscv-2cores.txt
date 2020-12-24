@@ -1,0 +1,125 @@
+-----------original file------------
+linux v5.8-rc2
+qspike
+qspike-mret(mpie,spie置1)
+riscv-pk(without uart-part)
+busybox-1.26.2(-march=rv64imafd)
+
+-----------tool-chain-------------
+riscv64-unknown-linux-gnu-
+
+-----------build bbl without payload----------
+spike.dtb
+bbl/payload.S
+	export global(_dtb_start, _payload_start)
+minit.c:
+	//query_uart();
+	//query_uart16550();
+	init_first_hart:
+	init_other_hart:
+		dtb=(uintptr_t)&_dtb_start;
+	delegate_traps:
+		exceptions=0x1ab;
+	mstatus_init:
+		//scounteren                                emulation:	csr_read(scounteren)		????????????
+		//mcounteren                              ???????
+	hart_plic_init():                                              ???????
+		spike 单核时能写进2004000,写不进2004008,fdt.c无改动
+		spike -p2双核时,写不进2004000, 能写<2004008, 2004010>
+			双核时改动fdt.c/clint_done:
+				(index+1)*8
+
+=========以上,能启动到dummy_payload(单双核都行)===========
+
+	spike-old:		mret(relocate ecall mret)后mstatus9000100
+	spike-mret: 	mret(relocate ecall mret)后mstatus9000180
+		暂时无明显影响
+
+	双核:	fdt.c/clint_done: (index+1)*8	??????????
+
+=================vmlinux==================
+	
+make ARCH=riscv menuconfig(default)
+		emit compressed code[n]
+		./rootfs.cpio
+
+head.S:
+	sfence.vma->sfence.vm	*2
+	relocate:
+		ecall -> csr_write(mstatus), VM置9
+machine/mtraps.c:
+	mcall_trap		+9
+riscv/include/asm/tlbflush.h:
+	vma -> vm	*2
+machine/mentry.S:
+machine/vm.h:
+	vma -> vm	*2
+
+=======================================
+单核可以启动到No working init found
+双核挂在sched_clock
+
+--------------------------------找双核挂死的地方---------------------------------
+riscv/kernel/time.c:
+	time_init:
+		+printk(riscv_timebase, HZ);
+linux/init/main.c:start_kernel:
+	time_init之后的local_irq_enable之后, 无限循环timer中断, 原因是中断前后STIP始终拉高
+drivers/clocksource/timer-riscv.c/riscv_timer_interrupt:
+	+csr_clear(CSR_IP, IE_TIE);
+
+---------------------以上启动双核到Free unused memory, 不去找init进程,sipke上死在rcu等待里------------------
+
+------------------回到单核状态,启动init进程--------------------
+dts
+fdt
+stip
+复原
+----------------
+do_page_fault:
+	(1,5,7)->(12,13,15)
+entry.S:
+	do_page_fault(1,5,7)
+SUM:
+	riscv/lib/uaccess.S		*6
+	riscv/include/asm/uaccess.h	*2
+	entry.S			*1
+
+--------------init进程启动成功,恢复双核状态------------------------
+dts以chip为准
+fdt以pk_fpga为准,<2004000,2004008>
+STIP置位
+----------------
+
+pk_fpga:
+	uart波特率
+	plic初始化
+	send_ipi_many():
+		&0xf		????????????????????
+
+======================双核启动成功=======================
+-----------------might_sleep-----------------
+老是说进程可能休眠, 原因是irqs_disabled()==true/SIE==0, 导致可能的进程休眠,具体SIE的行为暂时未知
+linux/kernel/sched/core.c:
+	___might_sleep:
+		if( ... && !irqs_disabled() && ...) -> if( ... && 1 && ...)	?????????????
+
+-----------------------------------
+linux menuconfig:
+	kernel features:
+		HZ[100]
+
+===============debug paging_init==================
+riscv/mm/init.c:
+	#define MAX_EARLY_MAPPING_SIZE	SZ_128M -> SZ_4G
+
+riscv/mm/init.c:
+	create_pmd_mapping:
+		+ __asm__ __volatile__ ("fence" : : : "memory");
+
+
+
+
+		
+		
+
